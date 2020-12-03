@@ -23,18 +23,23 @@ library(multcomp)
 #Getting Data into R #
 mice_info<-read.table('Blood_Pressure_Data_edit.txt', header = TRUE)
 mice<-as_tibble(mice_info)
+View(mice)
 
 #Get basal data together: 
-mice_bp_basal_info<-mice %>% select(Mouse_Number, Basal_1_SystolicBloodPressure, Basal_2_SystolicBloodPressure, Basal_3_SystolicBloodPressure, Basal_4_SystolicBloodPressure)
-mice_hr_basal_info<-mice %>% select(Mouse_Number, Basal_1_Pulse, Basal_2_Pulse, Basal_3_Pulse, Basal_4_Pulse)
-#Take means for blood pressure and heart rate basal information: 
-basal_bp_mean<- mice_bp_basal_info %>% 
-  transmute(Mouse_Number,
-            Basal_Systolic_BP_Mean = rowMeans(select(., 2:5)))
+mice_bp_basal_info<-mice %>% dplyr::select(Mouse_Number, Basal_1_SystolicBloodPressure, Basal_2_SystolicBloodPressure, Basal_3_SystolicBloodPressure, Basal_4_SystolicBloodPressure)
+View(mice_bp_basal_info)
+mice_hr_basal_info<-mice %>% dplyr:: select(Mouse_Number, Basal_1_Pulse, Basal_2_Pulse, Basal_3_Pulse, Basal_4_Pulse)
+View(mice_hr_basal_info)
 
-basal_hr_mean<-mice_hr_basal_info %>%
-  transmute(Mouse_Number, 
-            Basal_HR_Mean= rowMeans(select(., 2:5)))
+#Take means for blood pressure and heart rate basal information: 
+basal_bp_mean<- mice_bp_basal_info %>%dplyr::transmute(Mouse_Number,
+                                                       Basal_Systolic_BP_Mean = rowMeans(dplyr::select(., 2:5)))
+
+View(basal_bp_mean)
+
+basal_hr_mean<-mice_hr_basal_info %>% dplyr::transmute(Mouse_Number,
+                                                       Basal_HR_Mean = rowMeans(dplyr::select(. , 2:5)))
+View(basal_hr_mean)
 
 #Add means of basal bp and hr into main mice table as new column:
 mice<- cbind(mice, basal_bp_mean[,2])
@@ -76,16 +81,16 @@ plot_grid(boxplotbp, boxplothr, labels='AUTO')
 #### QUESTION 2 ####
 #Does Genetics influence BP or HR in pregnancy?
 #Making and separating blood pressure data into long form:
-mice_bp_data_wide <-mice %>% select(Mouse_Number, Genotype, Basal_Systolic_BP_Mean, E4.5_SystolicBloodPressure, E6.5_SystolicBloodPressure, 
-                                    E8.5_SystolicBloodPressure, E10.5_SystolicBloodPressure,E12.5_SystolicBloodPressure, 
-                                    E14.5_SystolicBloodPressure, E16.5_SystolicBloodPressure, E18.5_SystolicBloodPressure) 
+mice_bp_data_wide <-mice %>% dplyr::select(Mouse_Number, Genotype, Basal_Systolic_BP_Mean, E4.5_SystolicBloodPressure, E6.5_SystolicBloodPressure, 
+                                           E8.5_SystolicBloodPressure, E10.5_SystolicBloodPressure,E12.5_SystolicBloodPressure, 
+                                           E14.5_SystolicBloodPressure, E16.5_SystolicBloodPressure, E18.5_SystolicBloodPressure) 
 mice_bp_data<- melt(mice_bp_data_wide, id.vars=c("Mouse_Number","Genotype"),
                     variable.name = 'Time_Point', 
                     value.name='Systolic_Blood_Pressure')
 #Making and separating HR data into long form:
-mice_hr_data_wide<-mice %>% select(Mouse_Number,Genotype, Basal_HR_Mean, E4.5_Pulse, E6.5_Pulse, E8.5_Pulse, E10.5_Pulse, E12.5_Pulse,
-                                   E14.5_Pulse, E16.5_Pulse, E18.5_Pulse)
-mice_hr_data<- melt(mice_hr_anova_data, id.vars=c("Mouse_Number","Genotype"),
+mice_hr_data_wide<-mice %>% dplyr::select(Mouse_Number,Genotype, Basal_HR_Mean, E4.5_Pulse, E6.5_Pulse, E8.5_Pulse, E10.5_Pulse, E12.5_Pulse,
+                                          E14.5_Pulse, E16.5_Pulse, E18.5_Pulse)
+mice_hr_data<- melt(mice_hr_data_wide, id.vars=c("Mouse_Number","Genotype"),
                     variable.name = 'Time_Point',  
                     value.name = 'Heart_Rate')
 #THEN MADE THE TIME POINTS INTO FACTORS - got time points instead of titles:
@@ -151,7 +156,7 @@ TukeyHSD(q2hr)#post hoc
 #Does pregnancy influence systolic blood pressure and heart rate?
 #Pregnant- TRUE/FALSE column added into data frame:
 mice_pregnant_data<- merge(mice_bp_data,mice_hr_data)
-mice_pregnant_data$Pregnant<- c(ifelse(mice_pregnant_data$Time_Point == 0, TRUE, FALSE))
+mice_pregnant_data$Pregnant<- c(ifelse(mice_pregnant_data$Time_Point == 0, 'No', 'Yes'))
 View(mice_pregnant_data)
 #ANCOVA of pregnancy and blood pressure
 q3bp<- aov(Systolic_Blood_Pressure~Genotype+Pregnant, data=mice_pregnant_data)
@@ -186,38 +191,36 @@ summary(linearmodel2)
 
 #### POWER TESTING ####
 #N CALCULATION FOR 0.8 POWER TEST FOR T TEST WE WANT #
-t_test_power<-pwr.t.test(d=0.1,
-                         sig.level = 0.05, 
-                         power = 0.8,
-                         type= 'two.sample',
-                         alternative = 'two-sided')
+t_test_power<-pwr::pwr.t.test(d=0.1,sig.level = 0.05, 
+                              power = 0.8,type= 'two.sample', 
+                              alternative = 'two.sided')
+
 t_test_power
 plot(t_test_power)
 
 #POWER OF THE DATA WE HAVE:
-t_test_actual_power<-pwr.t.test(n=12,
-                                d=0.1,
-                                sig.level = 0.05,
-                                type='two.sample')
+t_test_actual_power<-pwr::pwr.t.test(n=12, d=0.1,
+                                     sig.level = 0.05,
+                                     type='two.sample')
 t_test_actual_power
 
 #N CALCULATION FOR 0.8 POWER TEST FOR ANOVA WE WANT #
 #k=groups = 2 genotypes
 #pwr package can only do 1 way anovas 
 #f = medium effect
-anova_power<-pwr.anova.test(k = 2,
-                            f = 0.15, 
-                            sig.level =0.05, 
-                            power =0.8 )
+anova_power<-pwr::pwr.anova.test(k = 2,
+                                 f = 0.15, 
+                                 sig.level =0.05, 
+                                 power =0.8 )
 anova_power
-plot(anova_power)
+#plot(anova_power)
 
 
 #POWER OF THE DATA WE HAVE:
-anova_actual_power<-pwr.anova.test(k=2,
-                                   f=0.15,
-                                   sig.level=0.05,
-                                   n=24)
+anova_actual_power<-pwr::pwr.anova.test(k=2,
+                                        f=0.15,
+                                        sig.level=0.05,
+                                        n=24)
 anova_actual_power
 
 
@@ -321,7 +324,7 @@ wt1<-ggplot(wildtype_bp, aes(x=Time_Point, y=Systolic_Blood_Pressure))+
   labs(y= 'Systolic Blood Pressure (mmHg)', x='Time Point', title= 'WT Systolic Blood Pressure (mmHg)')+
   theme_bw()
 
-knockout_bp<-mice_bp_data[mice_anova_data$Genotype=='KO',]
+knockout_bp<-mice_bp_data[mice_bp_data$Genotype=='KO',]
 #View(knockout_bp)
 ko1<-ggplot(knockout_bp, aes(x=Time_Point, y=Systolic_Blood_Pressure))+
   geom_boxplot()+
@@ -335,7 +338,7 @@ wt2<-ggplot(wildtype_hr, aes(x=Time_Point, y=Heart_Rate))+
   labs(y= 'Heart Rate (bpm)', x='Time Point', title= 'WT Heart Rate (bpm)')+
   theme_bw()
 
-knockout_hr<-mice_hr_data[mice_anova_data$Genotype=='KO',]
+knockout_hr<-mice_hr_data[mice_hr_data$Genotype=='KO',]
 #View(knockout_bp)
 ko2<-ggplot(knockout_hr, aes(x=Time_Point, y=Heart_Rate))+
   geom_boxplot()+
@@ -343,3 +346,6 @@ ko2<-ggplot(knockout_hr, aes(x=Time_Point, y=Heart_Rate))+
   theme_bw()
 
 plot_grid(wt1,wt2, ko1, ko2, labels='AUTO')
+
+
+
